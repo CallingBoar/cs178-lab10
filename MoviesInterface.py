@@ -9,18 +9,58 @@ import boto3
 dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
 table = dynamodb.Table('Movies')
 
+REGION = "us-east-1"
+TABLE_NAME = "Movies"
+
 def create_movie():
     """
     Prompt user for a Movie Title.
     Add the movie to the database with the title and an empty Ratings list.
     """
+    # Source - https://stackoverflow.com/a/33649402
+    # Posted by omuthu, modified by community. See post 'Timeline' for change history
+    # Retrieved 2026-03-05, License - CC BY-SA 4.0
+
+    input_title = input("What's the title of your movie? ")
+
+    table.put_item(TableName='Movies', Item={'Title':input_title,'Ratings':[]})
+
     print("creating a movie")
 
+def print_movie(movie):
+    title = movie.get("Title", "Unknown Title")
+    year = movie.get("Year", "Unknown Year")
+    ratings = movie.get("Ratings", "No ratings")
+    director = movie.get("Director", "Unknown Director")
+
+    print(f"  Title  : {title}")
+    print(f"  Year   : {year}")
+    print(f"  Ratings: {ratings}")
+    print(f"  Director: {director}")
+    print()
+
+def get_table():
+    """Return a reference to the DynamoDB Movies table."""
+    dynamodb = boto3.resource("dynamodb", region_name=REGION)
+    return dynamodb.Table(TABLE_NAME)
+
 def print_all_movies():
-    """
-    Display all movies in the database.
-    """
-    print("display all movies")
+    """Scan the entire Movies table and print each item."""
+    table = get_table()
+
+    # scan() retrieves ALL items in the table.
+    # For large tables you'd use query() instead — but for our small
+    # dataset, scan() is fine.
+    response = table.scan()
+    items = response.get("Items", [])
+
+    if not items:
+        print("No movies found. Make sure your DynamoDB table has data.")
+        return
+
+    print(f"Found {len(items)} movie(s):\n")
+    for movie in items:
+        print_movie(movie)
 
 def update_rating():
     """
@@ -28,6 +68,22 @@ def update_rating():
     Prompt user for a rating (integer).
     Append the rating to the movie's Ratings list in the database.
     """
+    title = input("What is the movie title? ")
+    try:
+        rating = int(input("What is the rating (integer): "))
+    except:
+        print("bru that's not an integer")
+        return
+
+    try:
+        print("updating rating")
+        table.update_item(
+            Key={"Title": title},
+            UpdateExpression="SET Ratings = list_append(Ratings, :r)",
+            ExpressionAttributeValues={':r': [rating]}
+        )
+    except:
+        print("That movie does not exist :(")
     print("updating rating")
 
 def delete_movie():
